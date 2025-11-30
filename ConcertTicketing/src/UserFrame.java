@@ -1,168 +1,201 @@
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
-import javax.swing.plaf.basic.BasicTabbedPaneUI;
 import java.awt.*;
 import java.sql.*;
 import java.text.DecimalFormat;
 
 public class UserFrame extends JFrame {
-
     private int userId;
     private String username;
 
     private JTable tblConcerts, tblHistory;
     private JComboBox<String> cmbConcert;
+    private JComboBox<String> ticketCategory;
     private JSpinner spnJumlah;
-    private JComboBox<String> ticketCategory;  // ComboBox untuk kategori tiket (VIP / Regular)
     private DefaultTableModel modelConcerts, modelHistory;
+
+    private JPanel panelContent;
 
     public UserFrame(int userId, String username) {
         this.userId = userId;
         this.username = username;
 
-        setTitle("Aplikasi Tiket Konser - User: " + username);
-        setSize(950, 650);
+        setTitle("Aplikasi Tiket Konser - " + username);
+        setSize(1100, 680);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
+        setLayout(new BorderLayout());
 
-        // BACKGROUND PANEL
-        JPanel bgPanel = new JPanel() {
-            @Override
-            protected void paintComponent(Graphics g) {
-                super.paintComponent(g);
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        // ====== SIDEBAR ======
+        JPanel sidebar = new JPanel();
+        sidebar.setBackground(new Color(15, 30, 70));
+        sidebar.setPreferredSize(new Dimension(230, getHeight()));
+        sidebar.setLayout(new BoxLayout(sidebar, BoxLayout.Y_AXIS));
+        sidebar.setBorder(BorderFactory.createEmptyBorder(30, 15, 30, 15));
 
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(10, 20, 60),
-                        getWidth(), getHeight(), new Color(0, 80, 180)
-                );
-                g2.setPaint(gp);
-                g2.fillRect(0, 0, getWidth(), getHeight());
-            }
-        };
-        bgPanel.setLayout(new BorderLayout());
-        add(bgPanel);
+        JLabel lblLogo = new JLabel("🎟️ TiketKonser", SwingConstants.CENTER);
+        lblLogo.setFont(new Font("Segoe UI", Font.BOLD, 18));
+        lblLogo.setForeground(Color.WHITE);
+        lblLogo.setAlignmentX(Component.CENTER_ALIGNMENT);
+        sidebar.add(lblLogo);
 
-        JLabel lblHeader = new JLabel("Dashboard Pengguna - Tiket Konser", SwingConstants.CENTER);
-        lblHeader.setFont(new Font("Segoe UI", Font.BOLD, 24));
-        lblHeader.setForeground(new Color(230, 235, 255));
-        lblHeader.setBorder(BorderFactory.createEmptyBorder(18, 0, 18, 0));
-        bgPanel.add(lblHeader, BorderLayout.NORTH);
+        sidebar.add(Box.createVerticalStrut(35));
 
-        // TAB PANEL
-        JTabbedPane tabs = new JTabbedPane();
-        tabs.setFont(new Font("Segoe UI", Font.BOLD, 14));
-        tabs.setOpaque(false);
-        tabs.setUI(new BasicTabbedPaneUI() {
-            @Override
-            protected void paintTabBackground(Graphics g, int tabPlacement, int tabIndex,
-                                              int x, int y, int w, int h, boolean isSelected) {
-                Graphics2D g2 = (Graphics2D) g;
-                g2.setColor(isSelected ? new Color(25, 70, 180) : new Color(30, 40, 80));
-                g2.fillRoundRect(x + 2, y + 4, w - 4, h - 6, 20, 20);
-            }
+        JButton btnConcerts = createMenuButton("Daftar Konser");
+        JButton btnOrder = createMenuButton("Pemesanan Tiket");
+        JButton btnHistory = createMenuButton("Riwayat Pemesanan");
+        JButton btnLogout = createMenuButton("Keluar");
 
-            @Override
-            protected void paintText(Graphics g, int tabPlacement, Font font, FontMetrics metrics,
-                                     int tabIndex, String title, Rectangle textRect, boolean isSelected) {
-                g.setFont(new Font("Segoe UI", Font.BOLD, 13));
-                g.setColor(isSelected ? Color.WHITE : new Color(190, 200, 240));
-                g.drawString(title, textRect.x, textRect.y + metrics.getAscent());
-            }
+        sidebar.add(btnConcerts);
+        sidebar.add(Box.createVerticalStrut(10));
+        sidebar.add(btnOrder);
+        sidebar.add(Box.createVerticalStrut(10));
+        sidebar.add(btnHistory);
+        sidebar.add(Box.createVerticalGlue());
+        sidebar.add(btnLogout);
 
-            @Override
-            protected void paintContentBorder(Graphics g, int tabPlacement, int selectedIndex) {}
-        });
+        add(sidebar, BorderLayout.WEST);
 
-        bgPanel.add(tabs, BorderLayout.CENTER);
+        // ====== PANEL KONTEN ======
+        panelContent = new JPanel(new CardLayout());
+        panelContent.setBackground(new Color(245, 247, 255));
+        add(panelContent, BorderLayout.CENTER);
 
-        // TAB 1: DAFTAR KONSER
+        // ====== PANEL 1: DAFTAR KONSER ======
         JPanel panelConcerts = new JPanel(new BorderLayout());
-        panelConcerts.setOpaque(false);
+        JLabel lbl1 = createHeader("Daftar Konser");
+        panelConcerts.add(lbl1, BorderLayout.NORTH);
 
-        modelConcerts = new DefaultTableModel(new String[]{"ID", "Nama Konser", "Tanggal", "Lokasi", "Harga VIP", "Harga Regular", "Kuota", "Guest Star"}, 0) {
-            @Override public boolean isCellEditable(int r, int c) { return false; }
-        };
+        modelConcerts = new DefaultTableModel(new String[]{
+                "ID", "Nama Konser", "Tanggal", "Lokasi", "Harga VIP", "Harga Regular", "Kuota", "Guest Star"}, 0);
         tblConcerts = new JTable(modelConcerts);
         styleTable(tblConcerts);
+        JScrollPane scrollConcerts = new JScrollPane(tblConcerts);
+        panelConcerts.add(scrollConcerts, BorderLayout.CENTER);
 
-        panelConcerts.add(new JScrollPane(tblConcerts), BorderLayout.CENTER);
-
-        JButton btnReload = new JButton("Refresh");
-        btnReload.addActionListener(e -> loadConcerts());
-        JPanel bottom1 = new JPanel();
-        bottom1.setOpaque(false);
+        JButton btnReload = styledButton("Refresh", new Color(80, 100, 150));
+        JPanel bottom1 = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        bottom1.setBackground(Color.WHITE);
         bottom1.add(btnReload);
         panelConcerts.add(bottom1, BorderLayout.SOUTH);
 
-        // TAB 2: PEMESANAN
+        btnReload.addActionListener(e -> loadConcerts());
+
+        // ====== PANEL 2: PEMESANAN ======
         JPanel panelOrder = new JPanel(new GridBagLayout());
-        panelOrder.setOpaque(false);
+        panelOrder.setBackground(Color.WHITE);
         GridBagConstraints gbc = new GridBagConstraints();
-        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.insets = new Insets(12, 12, 12, 12);
         gbc.fill = GridBagConstraints.HORIZONTAL;
 
+        JLabel lblTitleOrder = createHeader("Pemesanan Tiket");
+        gbc.gridx = 0; gbc.gridy = 0; gbc.gridwidth = 2;
+        panelOrder.add(lblTitleOrder, gbc);
+
+        gbc.gridwidth = 1;
         JLabel lblConcert = new JLabel("Pilih Konser:");
-        lblConcert.setForeground(Color.WHITE);
         JLabel lblJumlah = new JLabel("Jumlah Tiket:");
-        lblJumlah.setForeground(Color.WHITE);
         JLabel lblCategory = new JLabel("Kategori Tiket:");
-        lblCategory.setForeground(Color.WHITE);
 
         cmbConcert = new JComboBox<>();
-        cmbConcert.setPreferredSize(new Dimension(250, 30));
+        ticketCategory = new JComboBox<>(new String[]{"VIP", "Regular"});
         spnJumlah = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
 
-        // ComboBox untuk memilih kategori tiket (VIP / Regular)
-        ticketCategory = new JComboBox<>(new String[]{"VIP", "Regular"});
-        ticketCategory.setPreferredSize(new Dimension(250, 30));
+        JButton btnPesan = styledButton("Pesan Tiket", new Color(35, 120, 220));
 
-        JButton btnPesan = new JButton("Pesan Tiket");
-        btnPesan.setBackground(new Color(30, 100, 230));
-        btnPesan.setForeground(Color.WHITE);
-        btnPesan.setFont(new Font("Segoe UI", Font.BOLD, 14));
-
-        gbc.gridx = 0; gbc.gridy = 0; panelOrder.add(lblConcert, gbc);
+        gbc.gridx = 0; gbc.gridy = 1; panelOrder.add(lblConcert, gbc);
         gbc.gridx = 1; panelOrder.add(cmbConcert, gbc);
-        gbc.gridx = 0; gbc.gridy = 1; panelOrder.add(lblJumlah, gbc);
+        gbc.gridx = 0; gbc.gridy = 2; panelOrder.add(lblJumlah, gbc);
         gbc.gridx = 1; panelOrder.add(spnJumlah, gbc);
-        gbc.gridx = 0; gbc.gridy = 2; panelOrder.add(lblCategory, gbc);
+        gbc.gridx = 0; gbc.gridy = 3; panelOrder.add(lblCategory, gbc);
         gbc.gridx = 1; panelOrder.add(ticketCategory, gbc);
-        gbc.gridx = 0; gbc.gridy = 3; gbc.gridwidth = 2; panelOrder.add(btnPesan, gbc);
+        gbc.gridx = 0; gbc.gridy = 4; gbc.gridwidth = 2;
+        panelOrder.add(btnPesan, gbc);
+
+        lblConcert.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblJumlah.setFont(new Font("Segoe UI", Font.PLAIN, 14));
+        lblCategory.setFont(new Font("Segoe UI", Font.PLAIN, 14));
 
         btnPesan.addActionListener(e -> buatPesanan());
 
-        // TAB 3: RIWAYAT
+        // ====== PANEL 3: RIWAYAT ======
         JPanel panelHistory = new JPanel(new BorderLayout());
-        panelHistory.setOpaque(false);
+        JLabel lbl3 = createHeader("Riwayat Pemesanan");
+        panelHistory.add(lbl3, BorderLayout.NORTH);
 
-        modelHistory = new DefaultTableModel(
-                new String[]{"ID Pesanan", "Konser", "Tanggal Pesan", "Jumlah", "Total"}, 0
-        ) { @Override public boolean isCellEditable(int r, int c) { return false; } };
-
+        modelHistory = new DefaultTableModel(new String[]{
+                "ID Pesanan", "Konser", "Tanggal Pesan", "Jumlah", "Total"}, 0);
         tblHistory = new JTable(modelHistory);
         styleTable(tblHistory);
 
-        JButton btnHistoryReload = new JButton("Refresh Riwayat");
-        btnHistoryReload.addActionListener(e -> loadHistory());
+        JScrollPane scrollHistory = new JScrollPane(tblHistory);
+        panelHistory.add(scrollHistory, BorderLayout.CENTER);
 
-        panelHistory.add(new JScrollPane(tblHistory), BorderLayout.CENTER);
-        JPanel bottom2 = new JPanel();
-        bottom2.setOpaque(false);
-        bottom2.add(btnHistoryReload);
-        panelHistory.add(bottom2, BorderLayout.SOUTH);
+        JButton btnReloadHistory = styledButton("Refresh Riwayat", new Color(80, 100, 150));
+        JPanel bottom3 = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
+        bottom3.setBackground(Color.WHITE);
+        bottom3.add(btnReloadHistory);
+        panelHistory.add(bottom3, BorderLayout.SOUTH);
+        btnReloadHistory.addActionListener(e -> loadHistory());
 
-        // ADD TABS
-        tabs.addTab("Daftar Konser", panelConcerts);
-        tabs.addTab("Pemesanan Tiket", panelOrder);
-        tabs.addTab("Riwayat Pemesanan", panelHistory);
+        // ====== MASUKKAN SEMUA KE CARD ======
+        panelContent.add(panelConcerts, "concerts");
+        panelContent.add(panelOrder, "order");
+        panelContent.add(panelHistory, "history");
 
-        // LOAD DATA
+        // ====== NAVIGATION BUTTONS ======
+        CardLayout cl = (CardLayout) panelContent.getLayout();
+        btnConcerts.addActionListener(e -> cl.show(panelContent, "concerts"));
+        btnOrder.addActionListener(e -> cl.show(panelContent, "order"));
+        btnHistory.addActionListener(e -> cl.show(panelContent, "history"));
+        btnLogout.addActionListener(e -> {
+            int confirm = JOptionPane.showConfirmDialog(this, "Yakin ingin keluar?", "Konfirmasi", JOptionPane.YES_NO_OPTION);
+            if (confirm == JOptionPane.YES_OPTION) dispose();
+        });
+
+        // ====== LOAD DATA ======
         loadConcerts();
         loadConcertOptions();
         loadHistory();
+
+        setVisible(true);
+    }
+
+    // === COMPONENT STYLE ===
+    private JButton createMenuButton(String text) {
+        JButton b = new JButton(text);
+        b.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        b.setForeground(Color.WHITE);
+        b.setBackground(new Color(35, 70, 150));
+        b.setFocusPainted(false);
+        b.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
+        b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        b.setAlignmentX(Component.CENTER_ALIGNMENT);
+        b.addMouseListener(new java.awt.event.MouseAdapter() {
+            public void mouseEntered(java.awt.event.MouseEvent evt) { b.setBackground(new Color(50, 110, 200)); }
+            public void mouseExited(java.awt.event.MouseEvent evt) { b.setBackground(new Color(35, 70, 150)); }
+        });
+        return b;
+    }
+
+    private JButton styledButton(String text, Color bgColor) {
+        JButton btn = new JButton(text);
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
+        btn.setForeground(Color.WHITE);
+        btn.setBackground(bgColor);
+        btn.setBorder(BorderFactory.createEmptyBorder(8, 16, 8, 16));
+        btn.setFocusPainted(false);
+        btn.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
+        return btn;
+    }
+
+    private JLabel createHeader(String text) {
+        JLabel lbl = new JLabel(text, SwingConstants.CENTER);
+        lbl.setFont(new Font("Segoe UI", Font.BOLD, 22));
+        lbl.setForeground(new Color(20, 40, 90));
+        lbl.setBorder(BorderFactory.createEmptyBorder(15, 0, 15, 0));
+        return lbl;
     }
 
     private void styleTable(JTable t) {
@@ -176,19 +209,20 @@ public class UserFrame extends JFrame {
         h.setForeground(Color.WHITE);
     }
 
+    // === DATABASE FUNCTION ===
     private void loadConcerts() {
         modelConcerts.setRowCount(0);
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT * FROM concerts");
              ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                modelConcerts.addRow(new Object[] {
+                modelConcerts.addRow(new Object[]{
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("date"),
                         rs.getString("location"),
-                        rs.getDouble("vip_price"),  // Harga VIP
-                        rs.getDouble("regular_price"),  // Harga Regular
+                        rs.getDouble("vip_price"),
+                        rs.getDouble("regular_price"),
                         rs.getInt("quota"),
                         rs.getString("guest_star")
                 });
@@ -203,9 +237,7 @@ public class UserFrame extends JFrame {
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement("SELECT id, name FROM concerts");
              ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                cmbConcert.addItem(rs.getInt("id") + " - " + rs.getString("name"));
-            }
+            while (rs.next()) cmbConcert.addItem(rs.getInt("id") + " - " + rs.getString("name"));
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Gagal load pilihan konser: " + e.getMessage());
         }
@@ -216,7 +248,6 @@ public class UserFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Pilih konser terlebih dahulu!");
             return;
         }
-
         String selected = cmbConcert.getSelectedItem().toString();
         int concertId = Integer.parseInt(selected.split(" - ")[0]);
         int jumlah = (int) spnJumlah.getValue();
@@ -224,31 +255,24 @@ public class UserFrame extends JFrame {
 
         try (Connection conn = DBConnection.getConnection()) {
             double harga = 0;
+            int kuota = 0;
             try (PreparedStatement ps = conn.prepareStatement("SELECT vip_price, regular_price, quota FROM concerts WHERE id=?")) {
                 ps.setInt(1, concertId);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
-                    if ("VIP".equals(category)) {
-                        harga = rs.getDouble("vip_price");
-                    } else {
-                        harga = rs.getDouble("regular_price");
-                    }
-
-                    int kuota = rs.getInt("quota");
-                    if (jumlah > kuota) {
-                        JOptionPane.showMessageDialog(this, "Kuota tidak cukup!");
-                        return;
-                    }
-                } else {
-                    JOptionPane.showMessageDialog(this, "Konser tidak ditemukan");
-                    return;
+                    harga = category.equals("VIP") ? rs.getDouble("vip_price") : rs.getDouble("regular_price");
+                    kuota = rs.getInt("quota");
                 }
             }
 
+            if (jumlah > kuota) {
+                JOptionPane.showMessageDialog(this, "Kuota tidak mencukupi!");
+                return;
+            }
+
             double total = harga * jumlah;
-            // Format total harga menjadi mata uang
-            DecimalFormat formatter = new DecimalFormat("Rp #,###");
-            String formattedTotal = formatter.format(total);
+            DecimalFormat df = new DecimalFormat("#,###");
+            String formatted = df.format(total);
 
             String sqlInsert = "INSERT INTO orders(user_id, concert_id, order_date, quantity, total_price) VALUES (?,?,CURRENT_DATE,?,?)";
             try (PreparedStatement ps2 = conn.prepareStatement(sqlInsert)) {
@@ -266,25 +290,24 @@ public class UserFrame extends JFrame {
                 ps3.executeUpdate();
             }
 
-            JOptionPane.showMessageDialog(this, "Pesanan berhasil! Total: Rp " + total);
+            JOptionPane.showMessageDialog(this, "Pesanan berhasil!\nTotal: Rp " + formatted);
             loadConcerts();
             loadHistory();
-
         } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error saat pemesanan: " + e.getMessage());
+            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage());
         }
     }
 
     private void loadHistory() {
         modelHistory.setRowCount(0);
-        String sql = "SELECT o.id, c.name, o.order_date, o.quantity, o.total_price " +
-                     "FROM orders o JOIN concerts c ON o.concert_id = c.id WHERE o.user_id=?";
+        String sql = "SELECT o.id, c.name, o.order_date, o.quantity, o.total_price FROM orders o " +
+                     "JOIN concerts c ON o.concert_id=c.id WHERE o.user_id=?";
         try (Connection conn = DBConnection.getConnection();
              PreparedStatement ps = conn.prepareStatement(sql)) {
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
-                modelHistory.addRow(new Object[] {
+                modelHistory.addRow(new Object[]{
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("order_date"),
