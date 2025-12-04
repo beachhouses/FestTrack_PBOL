@@ -3,6 +3,8 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.table.*;
 import java.awt.*;
 import java.sql.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 public class AdminFrame extends JFrame {
 
@@ -70,12 +72,11 @@ public class AdminFrame extends JFrame {
         bgPanel.add(panelContent, BorderLayout.CENTER);
 
         // ===== PANEL KELOLA KONSER =====
-        JPanel panelConcert = createCardPanel();
-        JLabel lblHeader = createGradientTitle("Kelola Data Konser");
-        panelConcert.add(lblHeader, BorderLayout.NORTH);
-
+        JPanel panelConcert = createCardPanel("Kelola Data Konser");
         modelConcerts = new DefaultTableModel(
-                new String[]{"ID", "Nama Konser", "Tanggal", "Lokasi", "VIP Price", "Regular Price", "Guest Star", "Kuota"}, 0);
+                new String[]{"ID", "Nama Konser", "Tanggal", "Lokasi",
+                             "VIP Price", "Regular Price",
+                             "Kuota VIP", "Kuota Regular", "Guest Star"}, 0);
         tableConcerts = new JTable(modelConcerts);
         styleTable(tableConcerts);
         JScrollPane scrollConcert = createRoundedScrollPane(tableConcerts);
@@ -95,10 +96,7 @@ public class AdminFrame extends JFrame {
         panelConcert.add(actionPanel, BorderLayout.SOUTH);
 
         // ===== PANEL LAPORAN =====
-        JPanel panelOrders = createCardPanel();
-        JLabel lblLaporan = createGradientTitle("Laporan Pemesanan Tiket");
-        panelOrders.add(lblLaporan, BorderLayout.NORTH);
-
+        JPanel panelOrders = createCardPanel("Laporan Pemesanan Tiket");
         modelOrders = new DefaultTableModel(
                 new String[]{"ID Order", "User", "Konser", "Tanggal", "Jumlah Tiket", "Total"}, 0);
         tableOrders = new JTable(modelOrders);
@@ -139,49 +137,27 @@ public class AdminFrame extends JFrame {
     }
 
     // ===== UTIL UI =====
-    private JPanel createCardPanel() {
+    private JPanel createCardPanel(String title) {
         JPanel card = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g.create();
-                g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(255, 255, 255, 80),
-                        0, getHeight(), new Color(255, 255, 255, 40)
-                );
-                g2.setPaint(gp);
+                g2.setColor(new Color(255, 255, 255, 70));
                 g2.fillRoundRect(0, 0, getWidth(), getHeight(), 25, 25);
-                g2.setColor(new Color(255, 255, 255, 90));
-                g2.drawRoundRect(0, 0, getWidth() - 1, getHeight() - 1, 25, 25);
                 g2.dispose();
             }
         };
         card.setOpaque(false);
         card.setBorder(new EmptyBorder(20, 25, 20, 25));
-        return card;
-    }
 
-    private JLabel createGradientTitle(String text) {
-        JLabel label = new JLabel(text, SwingConstants.CENTER) {
-            @Override
-            protected void paintComponent(Graphics g) {
-                Graphics2D g2 = (Graphics2D) g.create();
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(240, 245, 255),
-                        getWidth(), 0, new Color(160, 190, 255)
-                );
-                g2.setPaint(gp);
-                g2.setFont(new Font("Segoe UI Black", Font.BOLD, 28));
-                FontMetrics fm = g2.getFontMetrics();
-                int x = (getWidth() - fm.stringWidth(text)) / 2;
-                int y = ((getHeight() - fm.getHeight()) / 2) + fm.getAscent();
-                g2.drawString(text, x, y);
-                g2.dispose();
-            }
-        };
+        JLabel label = new JLabel(title, SwingConstants.CENTER);
+        label.setFont(new Font("Segoe UI Black", Font.BOLD, 26));
+        label.setForeground(new Color(240, 245, 255));
         label.setPreferredSize(new Dimension(0, 70));
-        return label;
+        card.add(label, BorderLayout.NORTH);
+
+        return card;
     }
 
     private JScrollPane createRoundedScrollPane(JTable table) {
@@ -229,64 +205,65 @@ public class AdminFrame extends JFrame {
     private void styleTable(JTable table) {
         table.setRowHeight(30);
         table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        table.setShowGrid(false);
-        table.setIntercellSpacing(new Dimension(0, 0));
-        table.setBackground(new Color(255, 255, 255, 200));
         table.setSelectionBackground(new Color(30, 90, 180));
         table.setSelectionForeground(Color.WHITE);
-        table.setOpaque(false);
-
         JTableHeader header = table.getTableHeader();
         header.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
         header.setBackground(new Color(25, 50, 120));
         header.setForeground(Color.WHITE);
         header.setPreferredSize(new Dimension(header.getWidth(), 35));
-        header.setOpaque(false);
-
-        table.setDefaultRenderer(Object.class, new DefaultTableCellRenderer() {
-            @Override
-            public Component getTableCellRendererComponent(JTable tbl, Object value,
-                                                           boolean isSelected, boolean hasFocus,
-                                                           int row, int column) {
-                Component c = super.getTableCellRendererComponent(tbl, value, isSelected, hasFocus, row, column);
-                if (!isSelected) {
-                    c.setBackground(row % 2 == 0
-                            ? new Color(250, 250, 255, 230)
-                            : new Color(235, 240, 250, 220));
-                    c.setForeground(new Color(30, 30, 50));
-                }
-                setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 10));
-                return c;
-            }
-        });
     }
 
     // ===== CRUD & LOAD DATA =====
     private void addConcert() {
         JTextField name = new JTextField();
-        JTextField date = new JTextField("2025-12-31");
         JTextField location = new JTextField();
         JTextField vip = new JTextField();
         JTextField regular = new JTextField();
+        JTextField vipQuota = new JTextField();
+        JTextField regQuota = new JTextField();
         JTextField guest = new JTextField();
-        JTextField quota = new JTextField();
 
-        Object[] form = {"Nama Konser:", name, "Tanggal:", date, "Lokasi:", location,
-                "VIP Price:", vip, "Regular Price:", regular, "Guest Star:", guest, "Kuota:", quota};
+        // Date picker
+        JTextField txtDate = new JTextField();
+        txtDate.setEditable(false);
+        JButton btnPick = new JButton("📅 Pilih");
+        btnPick.addActionListener(e -> {
+            DatePicker dp = new DatePicker(this);
+            Date d = dp.pickDate();
+            if (d != null) {
+                txtDate.setText(new SimpleDateFormat("yyyy-MM-dd").format(d));
+            }
+        });
+        JPanel datePanel = new JPanel(new BorderLayout());
+        datePanel.add(txtDate, BorderLayout.CENTER);
+        datePanel.add(btnPick, BorderLayout.EAST);
+
+        Object[] form = {
+                "Nama Konser:", name,
+                "Tanggal:", datePanel,
+                "Lokasi:", location,
+                "VIP Price:", vip,
+                "Regular Price:", regular,
+                "Kuota VIP:", vipQuota,
+                "Kuota Regular:", regQuota,
+                "Guest Star:", guest
+        };
 
         if (JOptionPane.showConfirmDialog(this, form, "Tambah Konser", JOptionPane.OK_CANCEL_OPTION)
                 == JOptionPane.OK_OPTION) {
-            String sql = "INSERT INTO concerts(name, date, location, vip_price, regular_price, guest_star, quota) " +
-                         "VALUES (?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO concerts(name, date, location, vip_price, regular_price, vip_quota, regular_quota, guest_star) " +
+                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
             try (Connection c = DBConnection.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, name.getText());
-                ps.setString(2, date.getText());
+                ps.setString(2, txtDate.getText());
                 ps.setString(3, location.getText());
                 ps.setDouble(4, Double.parseDouble(vip.getText()));
                 ps.setDouble(5, Double.parseDouble(regular.getText()));
-                ps.setString(6, guest.getText());
-                ps.setInt(7, Integer.parseInt(quota.getText()));
+                ps.setInt(6, Integer.parseInt(vipQuota.getText()));
+                ps.setInt(7, Integer.parseInt(regQuota.getText()));
+                ps.setString(8, guest.getText());
                 ps.executeUpdate();
                 loadConcerts();
                 JOptionPane.showMessageDialog(this, "Konser berhasil ditambahkan!");
@@ -305,29 +282,51 @@ public class AdminFrame extends JFrame {
 
         int id = (int) modelConcerts.getValueAt(row, 0);
         JTextField name = new JTextField(modelConcerts.getValueAt(row, 1).toString());
-        JTextField date = new JTextField(modelConcerts.getValueAt(row, 2).toString());
         JTextField location = new JTextField(modelConcerts.getValueAt(row, 3).toString());
         JTextField vip = new JTextField(modelConcerts.getValueAt(row, 4).toString());
         JTextField regular = new JTextField(modelConcerts.getValueAt(row, 5).toString());
-        JTextField guest = new JTextField(modelConcerts.getValueAt(row, 6).toString());
-        JTextField quota = new JTextField(modelConcerts.getValueAt(row, 7).toString());
+        JTextField vipQuota = new JTextField(modelConcerts.getValueAt(row, 6).toString());
+        JTextField regQuota = new JTextField(modelConcerts.getValueAt(row, 7).toString());
+        JTextField guest = new JTextField(modelConcerts.getValueAt(row, 8).toString());
 
-        Object[] form = {"Nama Konser:", name, "Tanggal:", date, "Lokasi:", location,
-                "VIP Price:", vip, "Regular Price:", regular, "Guest Star:", guest, "Kuota:", quota};
+        // date picker
+        JTextField txtDate = new JTextField(modelConcerts.getValueAt(row, 2).toString());
+        txtDate.setEditable(false);
+        JButton btnPick = new JButton("📅 Pilih");
+        btnPick.addActionListener(e -> {
+            DatePicker dp = new DatePicker(this);
+            Date d = dp.pickDate();
+            if (d != null) txtDate.setText(new SimpleDateFormat("yyyy-MM-dd").format(d));
+        });
+        JPanel datePanel = new JPanel(new BorderLayout());
+        datePanel.add(txtDate, BorderLayout.CENTER);
+        datePanel.add(btnPick, BorderLayout.EAST);
+
+        Object[] form = {
+                "Nama Konser:", name,
+                "Tanggal:", datePanel,
+                "Lokasi:", location,
+                "VIP Price:", vip,
+                "Regular Price:", regular,
+                "Kuota VIP:", vipQuota,
+                "Kuota Regular:", regQuota,
+                "Guest Star:", guest
+        };
 
         if (JOptionPane.showConfirmDialog(this, form, "Edit Konser", JOptionPane.OK_CANCEL_OPTION)
                 == JOptionPane.OK_OPTION) {
-            String sql = "UPDATE concerts SET name=?, date=?, location=?, vip_price=?, regular_price=?, guest_star=?, quota=? WHERE id=?";
+            String sql = "UPDATE concerts SET name=?, date=?, location=?, vip_price=?, regular_price=?, vip_quota=?, regular_quota=?, guest_star=? WHERE id=?";
             try (Connection c = DBConnection.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, name.getText());
-                ps.setString(2, date.getText());
+                ps.setString(2, txtDate.getText());
                 ps.setString(3, location.getText());
                 ps.setDouble(4, Double.parseDouble(vip.getText()));
                 ps.setDouble(5, Double.parseDouble(regular.getText()));
-                ps.setString(6, guest.getText());
-                ps.setInt(7, Integer.parseInt(quota.getText()));
-                ps.setInt(8, id);
+                ps.setInt(6, Integer.parseInt(vipQuota.getText()));
+                ps.setInt(7, Integer.parseInt(regQuota.getText()));
+                ps.setString(8, guest.getText());
+                ps.setInt(9, id);
                 ps.executeUpdate();
                 loadConcerts();
                 JOptionPane.showMessageDialog(this, "Data konser diperbarui!");
@@ -372,8 +371,9 @@ public class AdminFrame extends JFrame {
                         rs.getString("location"),
                         rs.getDouble("vip_price"),
                         rs.getDouble("regular_price"),
-                        rs.getString("guest_star"),
-                        rs.getInt("quota")
+                        rs.getInt("vip_quota"),
+                        rs.getInt("regular_quota"),
+                        rs.getString("guest_star")
                 });
             }
         } catch (SQLException e) {
