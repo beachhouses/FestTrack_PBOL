@@ -82,7 +82,7 @@ public class UserFrame extends JFrame {
 
         modelConcerts = new DefaultTableModel(new String[]{
                 "ID", "Nama Konser", "Tanggal", "Lokasi",
-                "Harga VIP", "Harga Regular", "Kuota", "Guest Star"
+                "Harga VIP", "Harga Regular", "Kuota VIP", "Kuota Regular", "Guest Star"
         }, 0);
         tblConcerts = new JTable(modelConcerts);
         styleTable(tblConcerts);
@@ -310,8 +310,15 @@ public class UserFrame extends JFrame {
              ResultSet r = s.executeQuery("SELECT * FROM concerts")) {
             while (r.next()) {
                 modelConcerts.addRow(new Object[]{
-                        r.getInt("id"), r.getString("name"), r.getString("date"), r.getString("location"),
-                        r.getDouble("vip_price"), r.getDouble("regular_price"), r.getInt("quota"), r.getString("guest_star")
+                        r.getInt("id"),
+                        r.getString("name"),
+                        r.getString("date"),
+                        r.getString("location"),
+                        r.getDouble("vip_price"),
+                        r.getDouble("regular_price"),
+                        r.getInt("vip_quota"),
+                        r.getInt("regular_quota"),
+                        r.getString("guest_star")
                 });
             }
         } catch (SQLException e) {
@@ -324,7 +331,9 @@ public class UserFrame extends JFrame {
         try (Connection c = DBConnection.getConnection();
              Statement s = c.createStatement();
              ResultSet r = s.executeQuery("SELECT id, name FROM concerts")) {
-            while (r.next()) cmbConcert.addItem(r.getInt("id") + " - " + r.getString("name"));
+            while (r.next()) {
+                cmbConcert.addItem(r.getInt("id") + " - " + r.getString("name"));
+            }
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error load pilihan konser: " + e.getMessage());
         }
@@ -335,6 +344,7 @@ public class UserFrame extends JFrame {
             JOptionPane.showMessageDialog(this, "Pilih konser terlebih dahulu!");
             return;
         }
+
         String s = cmbConcert.getSelectedItem().toString();
         int concertId = Integer.parseInt(s.split(" - ")[0]);
         int jumlah = (int) spnJumlah.getValue();
@@ -343,17 +353,31 @@ public class UserFrame extends JFrame {
         try (Connection c = DBConnection.getConnection()) {
             double harga = 0;
             int kuota = 0;
+
+            int vipQuota = 0;
+            int regQuota = 0;
+
+            // Ambil harga & kuota per kategori
             try (PreparedStatement ps = c.prepareStatement(
-                    "SELECT vip_price, regular_price, quota FROM concerts WHERE id=?")) {
+                    "SELECT vip_price, regular_price, vip_quota, regular_quota, quota FROM concerts WHERE id=?")) {
                 ps.setInt(1, concertId);
                 ResultSet rs = ps.executeQuery();
                 if (rs.next()) {
-                    harga = cat.equals("VIP") ? rs.getDouble("vip_price") : rs.getDouble("regular_price");
-                    kuota = rs.getInt("quota");
+                    vipQuota = rs.getInt("vip_quota");
+                    regQuota = rs.getInt("regular_quota");
+
+                    if ("VIP".equals(cat)) {
+                        harga = rs.getDouble("vip_price");
+                        kuota = vipQuota;
+                    } else {
+                        harga = rs.getDouble("regular_price");
+                        kuota = regQuota;
+                    }
                 }
             }
+
             if (jumlah > kuota) {
-                JOptionPane.showMessageDialog(this, "Kuota tidak mencukupi!");
+                JOptionPane.showMessageDialog(this, "Kuota " + cat + " tidak mencukupi!");
                 return;
             }
 
@@ -361,6 +385,7 @@ public class UserFrame extends JFrame {
             DecimalFormat df = new DecimalFormat("#,###");
             String formatted = df.format(total);
 
+            // Insert ke tabel orders
             try (PreparedStatement ps = c.prepareStatement(
                     "INSERT INTO orders(user_id, concert_id, order_date, quantity, total_price) " +
                             "VALUES (?,?,CURRENT_DATE,?,?)")) {
@@ -371,11 +396,23 @@ public class UserFrame extends JFrame {
                 ps.executeUpdate();
             }
 
-            try (PreparedStatement ps = c.prepareStatement(
-                    "UPDATE concerts SET quota = quota - ? WHERE id=?")) {
-                ps.setInt(1, jumlah);
-                ps.setInt(2, concertId);
-                ps.executeUpdate();
+            // Update kuota kategori + total quota (kalau kolom quota masih ada)
+            if ("VIP".equals(cat)) {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE concerts SET vip_quota = vip_quota - ?, quota = quota - ? WHERE id=?")) {
+                    ps.setInt(1, jumlah);
+                    ps.setInt(2, jumlah);
+                    ps.setInt(3, concertId);
+                    ps.executeUpdate();
+                }
+            } else {
+                try (PreparedStatement ps = c.prepareStatement(
+                        "UPDATE concerts SET regular_quota = regular_quota - ?, quota = quota - ? WHERE id=?")) {
+                    ps.setInt(1, jumlah);
+                    ps.setInt(2, jumlah);
+                    ps.setInt(3, concertId);
+                    ps.executeUpdate();
+                }
             }
 
             JOptionPane.showMessageDialog(this, "Pesanan berhasil!\nTotal: Rp " + formatted);
@@ -396,8 +433,11 @@ public class UserFrame extends JFrame {
             ResultSet rs = ps.executeQuery();
             while (rs.next()) {
                 modelHistory.addRow(new Object[]{
-                        rs.getInt("id"), rs.getString("name"),
-                        rs.getString("order_date"), rs.getInt("quantity"), rs.getDouble("total_price")
+                        rs.getInt("id"),
+                        rs.getString("name"),
+                        rs.getString("order_date"),
+                        rs.getInt("quantity"),
+                        rs.getDouble("total_price")
                 });
             }
         } catch (SQLException e) {
