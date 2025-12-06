@@ -9,10 +9,12 @@ import java.util.Date;
 public class AdminFrame extends JFrame {
 
     private int adminId;
+    private boolean darkMode = true; // default tema awal
     private String username;
     private JTable tableConcerts, tableOrders;
     private DefaultTableModel modelConcerts, modelOrders;
     private JPanel panelContent;
+
 
     public AdminFrame(int adminId, String username) {
         this.adminId = adminId;
@@ -30,15 +32,13 @@ public class AdminFrame extends JFrame {
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                GradientPaint gp = new GradientPaint(
-                        0, 0, new Color(10, 20, 60),
-                        getWidth(), getHeight(), new Color(25, 100, 210)
-                );
+                Color c1 = darkMode ? new Color(10, 20, 60) : new Color(230, 240, 255);
+                Color c2 = darkMode ? new Color(25, 100, 210) : new Color(180, 210, 255);
+                GradientPaint gp = new GradientPaint(0, 0, c1, getWidth(), getHeight(), c2);
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
         };
-        add(bgPanel, BorderLayout.CENTER);
 
         // ===== SIDEBAR =====
         JPanel sidebar = new JPanel();
@@ -56,14 +56,18 @@ public class AdminFrame extends JFrame {
 
         JButton btnKonser = createMenuButton("Kelola Konser");
         JButton btnLaporan = createMenuButton("Laporan Pemesanan");
+        JButton btnDarkMode = createMenuButton("Ganti Tema");
         JButton btnLogout = createMenuButton("Keluar");
 
         sidebar.add(btnKonser);
         sidebar.add(Box.createVerticalStrut(10));
         sidebar.add(btnLaporan);
+        sidebar.add(btnDarkMode);
+        sidebar.add(Box.createVerticalStrut(10));
         sidebar.add(Box.createVerticalGlue());
         sidebar.add(btnLogout);
         bgPanel.add(sidebar, BorderLayout.WEST);
+        add(bgPanel, BorderLayout.CENTER);
 
         // ===== PANEL UTAMA =====
         panelContent = new JPanel(new CardLayout());
@@ -79,6 +83,18 @@ public class AdminFrame extends JFrame {
                              "Kuota VIP", "Kuota Regular", "Guest Star"}, 0);
         tableConcerts = new JTable(modelConcerts);
         styleTable(tableConcerts);
+
+        // ==== DASHBOARD STATISTIK ====
+        JPanel statsPanel = new JPanel(new GridLayout(1, 3, 15, 0));
+        statsPanel.setOpaque(false);
+        JLabel lblTotalKonser = createStatLabel("Total Konser", "0");
+        JLabel lblTotalVIP = createStatLabel("Total Kuota VIP", "0");
+        JLabel lblTotalReg = createStatLabel("Total Kuota Regular", "0");
+        statsPanel.add(lblTotalKonser);
+        statsPanel.add(lblTotalVIP);
+        statsPanel.add(lblTotalReg);
+        panelConcert.add(statsPanel, BorderLayout.NORTH);
+
         JScrollPane scrollConcert = createRoundedScrollPane(tableConcerts);
         scrollConcert.setBorder(BorderFactory.createEmptyBorder(25, 20, 20, 20));
         panelConcert.add(scrollConcert, BorderLayout.CENTER);
@@ -94,6 +110,8 @@ public class AdminFrame extends JFrame {
         actionPanel.add(btnDelete);
         actionPanel.add(btnRefresh);
         panelConcert.add(actionPanel, BorderLayout.SOUTH);
+
+        updateStats(lblTotalKonser, lblTotalVIP, lblTotalReg);
 
         // ===== PANEL LAPORAN =====
         JPanel panelOrders = createCardPanel("Laporan Pemesanan Tiket");
@@ -123,6 +141,15 @@ public class AdminFrame extends JFrame {
             if (confirm == JOptionPane.YES_OPTION) dispose();
         });
 
+        btnDarkMode.addActionListener(e -> {
+            darkMode = !darkMode;
+            applyTheme(sidebar, lblLogo);
+            repaint();
+        });
+
+
+        updateStats(lblTotalKonser, lblTotalVIP, lblTotalReg);
+
         // ===== CRUD EVENT =====
         btnAdd.addActionListener(e -> addConcert());
         btnEdit.addActionListener(e -> editConcert());
@@ -132,6 +159,8 @@ public class AdminFrame extends JFrame {
 
         loadConcerts();
         loadOrders();
+
+        applyTheme(sidebar, lblLogo);
 
         setVisible(true);
     }
@@ -168,7 +197,31 @@ public class AdminFrame extends JFrame {
         scroll.setBackground(new Color(255, 255, 255, 70));
         return scroll;
     }
-
+    
+        private JLabel createStatLabel(String title, String value) {
+        JLabel lbl = new JLabel("<html><center><b>" + title + "</b><br>" + value + "</center></html>", SwingConstants.CENTER);
+        lbl.setOpaque(true);
+        lbl.setBackground(new Color(255, 255, 255, 80));
+        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 15));
+        lbl.setForeground(Color.WHITE);
+        lbl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
+        return lbl;
+    }
+    
+    private void updateStats(JLabel lblKonser, JLabel lblVIP, JLabel lblReg) {
+        try (Connection c = DBConnection.getConnection();
+             Statement st = c.createStatement()) {
+            ResultSet rs1 = st.executeQuery("SELECT COUNT(*) AS total FROM concerts");
+            if (rs1.next()) lblKonser.setText("<html><center><b>Total Konser</b><br>" + rs1.getInt("total") + "</center></html>");
+            ResultSet rs2 = st.executeQuery("SELECT SUM(vip_quota) AS vip FROM concerts");
+            if (rs2.next()) lblVIP.setText("<html><center><b>Total Kuota VIP</b><br>" + rs2.getInt("vip") + "</center></html>");
+            ResultSet rs3 = st.executeQuery("SELECT SUM(regular_quota) AS reg FROM concerts");
+            if (rs3.next()) lblReg.setText("<html><center><b>Total Kuota Regular</b><br>" + rs3.getInt("reg") + "</center></html>");
+        } catch (SQLException e) {
+            System.out.println("Error stats: " + e.getMessage());
+        }
+    }
+    
     private JButton createMenuButton(String text) {
         JButton b = new JButton(text);
         b.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -202,16 +255,55 @@ public class AdminFrame extends JFrame {
         return btn;
     }
 
-    private void styleTable(JTable table) {
-        table.setRowHeight(30);
-        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-        table.setSelectionBackground(new Color(30, 90, 180));
-        table.setSelectionForeground(Color.WHITE);
-        JTableHeader header = table.getTableHeader();
-        header.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
-        header.setBackground(new Color(25, 50, 120));
-        header.setForeground(Color.WHITE);
-        header.setPreferredSize(new Dimension(header.getWidth(), 35));
+        private void styleTable(JTable table) {
+            table.setRowHeight(30);
+            table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+            table.setSelectionBackground(new Color(30, 90, 180));
+            table.setSelectionForeground(Color.WHITE);
+            JTableHeader header = table.getTableHeader();
+            header.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
+            header.setBackground(new Color(25, 50, 120));
+            header.setForeground(Color.WHITE);
+            header.setPreferredSize(new Dimension(header.getWidth(), 35));
+        }
+
+        private void applyTheme(JPanel sidebar, JLabel lblLogo) {
+        Color sidebarBg = darkMode ? new Color(32, 60, 140) : new Color(230, 240, 255);
+        Color sidebarText = darkMode ? Color.WHITE : new Color(20, 20, 40);
+        Color tableBg = darkMode ? new Color(255,255,255,60) : new Color(255,255,255);
+        Color headerBg = darkMode ? new Color(25,50,120) : new Color(200,220,255);
+        Color headerText = darkMode ? Color.WHITE : new Color(30,30,30);
+        Color cellText = darkMode ? Color.WHITE : Color.BLACK;
+
+        // Ubah sidebar
+        sidebar.setBackground(sidebarBg);
+        lblLogo.setForeground(sidebarText);
+
+        // Ubah seluruh tombol di sidebar
+        for (Component comp : sidebar.getComponents()) {
+            if (comp instanceof JButton btn) {
+                btn.setForeground(sidebarText);
+                btn.setBackground(darkMode ? new Color(32,60,140) : new Color(190,210,250));
+            }
+        }
+
+        // Tabel konser
+        JTableHeader header1 = tableConcerts.getTableHeader();
+        header1.setBackground(headerBg);
+        header1.setForeground(headerText);
+        tableConcerts.setBackground(tableBg);
+        tableConcerts.setForeground(cellText);
+        tableConcerts.setSelectionBackground(darkMode ? new Color(30,90,180) : new Color(180,200,255));
+        tableConcerts.setSelectionForeground(darkMode ? Color.WHITE : Color.BLACK);
+
+        // Tabel laporan
+        JTableHeader header2 = tableOrders.getTableHeader();
+        header2.setBackground(headerBg);
+        header2.setForeground(headerText);
+        tableOrders.setBackground(tableBg);
+        tableOrders.setForeground(cellText);
+        tableOrders.setSelectionBackground(darkMode ? new Color(30,90,180) : new Color(180,200,255));
+        tableOrders.setSelectionForeground(darkMode ? Color.WHITE : Color.BLACK);
     }
 
     // ===== CRUD & LOAD DATA =====
