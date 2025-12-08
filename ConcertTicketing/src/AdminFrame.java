@@ -9,12 +9,10 @@ import java.util.Date;
 public class AdminFrame extends JFrame {
 
     private int adminId;
-    private boolean darkMode = true; // default tema awal
     private String username;
     private JTable tableConcerts, tableOrders;
     private DefaultTableModel modelConcerts, modelOrders;
     private JPanel panelContent;
-
 
     public AdminFrame(int adminId, String username) {
         this.adminId = adminId;
@@ -26,19 +24,24 @@ public class AdminFrame extends JFrame {
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
+        // Ensure DB has image column
+        ensureImageColumnExists();
+
         // ===== BACKGROUND DASHBOARD =====
         JPanel bgPanel = new JPanel(new BorderLayout()) {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 Graphics2D g2 = (Graphics2D) g;
-                Color c1 = darkMode ? new Color(10, 20, 60) : new Color(230, 240, 255);
-                Color c2 = darkMode ? new Color(25, 100, 210) : new Color(180, 210, 255);
-                GradientPaint gp = new GradientPaint(0, 0, c1, getWidth(), getHeight(), c2);
+                GradientPaint gp = new GradientPaint(
+                        0, 0, new Color(10, 20, 60),
+                        getWidth(), getHeight(), new Color(25, 100, 210)
+                );
                 g2.setPaint(gp);
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
         };
+        add(bgPanel, BorderLayout.CENTER);
 
         // ===== SIDEBAR =====
         JPanel sidebar = new JPanel();
@@ -56,24 +59,51 @@ public class AdminFrame extends JFrame {
 
         JButton btnKonser = createMenuButton("Kelola Konser");
         JButton btnLaporan = createMenuButton("Laporan Pemesanan");
-        JButton btnDarkMode = createMenuButton("Ganti Tema");
         JButton btnLogout = createMenuButton("Keluar");
 
         sidebar.add(btnKonser);
         sidebar.add(Box.createVerticalStrut(10));
         sidebar.add(btnLaporan);
-        sidebar.add(btnDarkMode);
-        sidebar.add(Box.createVerticalStrut(10));
         sidebar.add(Box.createVerticalGlue());
         sidebar.add(btnLogout);
-        bgPanel.add(sidebar, BorderLayout.WEST);
-        add(bgPanel, BorderLayout.CENTER);
-
         // ===== PANEL UTAMA =====
         panelContent = new JPanel(new CardLayout());
         panelContent.setOpaque(false);
         panelContent.setBorder(new EmptyBorder(20, 20, 20, 20));
-        bgPanel.add(panelContent, BorderLayout.CENTER);
+
+        // ===== SPLIT PANE (SIDEBAR + CONTENT) =====
+        JSplitPane splitPane = new JSplitPane(JSplitPane.HORIZONTAL_SPLIT, sidebar, panelContent);
+        splitPane.setOpaque(false); // Make split pane transparent to show gradient
+        splitPane.setContinuousLayout(true); // Smooth resizing
+        splitPane.setOneTouchExpandable(true); // Allow easy collapsing
+        splitPane.setDividerSize(10); // Area to grab
+        splitPane.setBorder(null); // Remove default border
+        
+        // Customize Divider to be semi-transparent or styled
+        splitPane.setUI(new javax.swing.plaf.basic.BasicSplitPaneUI() {
+            public javax.swing.plaf.basic.BasicSplitPaneDivider createDefaultDivider() {
+                return new javax.swing.plaf.basic.BasicSplitPaneDivider(this) {
+                    public void setBorder(javax.swing.border.Border b) { }
+                    @Override
+                    public void paint(Graphics g) {
+                        super.paint(g);
+                        g.setColor(new Color(255, 255, 255, 50)); // Semi-transparent line
+                        g.fillRect(0, 0, getWidth(), getHeight());
+                        // Draw grip dots
+                        g.setColor(new Color(255, 255, 255, 150));
+                        int centerY = getHeight() / 2;
+                        int centerX = getWidth() / 2;
+                        for (int i = -10; i <= 10; i += 5) {
+                            g.fillOval(centerX - 1, centerY + i, 3, 3);
+                        }
+                    }
+                };
+            }
+        });
+
+        // Add splitPane to background instead of adding sidebar/content separately
+        bgPanel.add(splitPane, BorderLayout.CENTER);
+        sidebar.setPreferredSize(new Dimension(240, 0));
 
         // ===== PANEL KELOLA KONSER =====
         JPanel panelConcert = createCardPanel("Kelola Data Konser");
@@ -83,18 +113,6 @@ public class AdminFrame extends JFrame {
                              "Kuota VIP", "Kuota Regular", "Guest Star"}, 0);
         tableConcerts = new JTable(modelConcerts);
         styleTable(tableConcerts);
-
-        // ==== DASHBOARD STATISTIK ====
-        JPanel statsPanel = new JPanel(new GridLayout(1, 3, 15, 0));
-        statsPanel.setOpaque(false);
-        JLabel lblTotalKonser = createStatLabel("Total Konser", "0");
-        JLabel lblTotalVIP = createStatLabel("Total Kuota VIP", "0");
-        JLabel lblTotalReg = createStatLabel("Total Kuota Regular", "0");
-        statsPanel.add(lblTotalKonser);
-        statsPanel.add(lblTotalVIP);
-        statsPanel.add(lblTotalReg);
-        panelConcert.add(statsPanel, BorderLayout.NORTH);
-
         JScrollPane scrollConcert = createRoundedScrollPane(tableConcerts);
         scrollConcert.setBorder(BorderFactory.createEmptyBorder(25, 20, 20, 20));
         panelConcert.add(scrollConcert, BorderLayout.CENTER);
@@ -110,8 +128,6 @@ public class AdminFrame extends JFrame {
         actionPanel.add(btnDelete);
         actionPanel.add(btnRefresh);
         panelConcert.add(actionPanel, BorderLayout.SOUTH);
-
-        updateStats(lblTotalKonser, lblTotalVIP, lblTotalReg);
 
         // ===== PANEL LAPORAN =====
         JPanel panelOrders = createCardPanel("Laporan Pemesanan Tiket");
@@ -141,15 +157,6 @@ public class AdminFrame extends JFrame {
             if (confirm == JOptionPane.YES_OPTION) dispose();
         });
 
-        btnDarkMode.addActionListener(e -> {
-            darkMode = !darkMode;
-            applyTheme(sidebar, lblLogo);
-            repaint();
-        });
-
-
-        updateStats(lblTotalKonser, lblTotalVIP, lblTotalReg);
-
         // ===== CRUD EVENT =====
         btnAdd.addActionListener(e -> addConcert());
         btnEdit.addActionListener(e -> editConcert());
@@ -159,8 +166,6 @@ public class AdminFrame extends JFrame {
 
         loadConcerts();
         loadOrders();
-
-        applyTheme(sidebar, lblLogo);
 
         setVisible(true);
     }
@@ -197,31 +202,7 @@ public class AdminFrame extends JFrame {
         scroll.setBackground(new Color(255, 255, 255, 70));
         return scroll;
     }
-    
-        private JLabel createStatLabel(String title, String value) {
-        JLabel lbl = new JLabel("<html><center><b>" + title + "</b><br>" + value + "</center></html>", SwingConstants.CENTER);
-        lbl.setOpaque(true);
-        lbl.setBackground(new Color(255, 255, 255, 80));
-        lbl.setFont(new Font("Segoe UI", Font.PLAIN, 15));
-        lbl.setForeground(Color.WHITE);
-        lbl.setBorder(BorderFactory.createEmptyBorder(10, 10, 10, 10));
-        return lbl;
-    }
-    
-    private void updateStats(JLabel lblKonser, JLabel lblVIP, JLabel lblReg) {
-        try (Connection c = DBConnection.getConnection();
-             Statement st = c.createStatement()) {
-            ResultSet rs1 = st.executeQuery("SELECT COUNT(*) AS total FROM concerts");
-            if (rs1.next()) lblKonser.setText("<html><center><b>Total Konser</b><br>" + rs1.getInt("total") + "</center></html>");
-            ResultSet rs2 = st.executeQuery("SELECT SUM(vip_quota) AS vip FROM concerts");
-            if (rs2.next()) lblVIP.setText("<html><center><b>Total Kuota VIP</b><br>" + rs2.getInt("vip") + "</center></html>");
-            ResultSet rs3 = st.executeQuery("SELECT SUM(regular_quota) AS reg FROM concerts");
-            if (rs3.next()) lblReg.setText("<html><center><b>Total Kuota Regular</b><br>" + rs3.getInt("reg") + "</center></html>");
-        } catch (SQLException e) {
-            System.out.println("Error stats: " + e.getMessage());
-        }
-    }
-    
+
     private JButton createMenuButton(String text) {
         JButton b = new JButton(text);
         b.setFont(new Font("Segoe UI", Font.BOLD, 14));
@@ -230,7 +211,8 @@ public class AdminFrame extends JFrame {
         b.setFocusPainted(false);
         b.setBorder(BorderFactory.createEmptyBorder(10, 18, 10, 18));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
-        b.setMaximumSize(new Dimension(200, 45));
+        b.setMaximumSize(new Dimension(220, 45));
+        b.setPreferredSize(new Dimension(220, 45));
         b.setHorizontalAlignment(SwingConstants.LEFT);
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.addMouseListener(new java.awt.event.MouseAdapter() {
@@ -255,70 +237,85 @@ public class AdminFrame extends JFrame {
         return btn;
     }
 
-        private void styleTable(JTable table) {
-            table.setRowHeight(30);
-            table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
-            table.setSelectionBackground(new Color(30, 90, 180));
-            table.setSelectionForeground(Color.WHITE);
-            JTableHeader header = table.getTableHeader();
-            header.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
-            header.setBackground(new Color(25, 50, 120));
-            header.setForeground(Color.WHITE);
-            header.setPreferredSize(new Dimension(header.getWidth(), 35));
+    private void styleTable(JTable table) {
+        table.setRowHeight(60); // Increased row height
+        table.setFont(new Font("Segoe UI", Font.PLAIN, 13));
+        table.setSelectionBackground(new Color(30, 90, 180));
+        table.setSelectionForeground(Color.WHITE);
+        JTableHeader header = table.getTableHeader();
+        header.setFont(new Font("Segoe UI Semibold", Font.BOLD, 14));
+        header.setBackground(new Color(25, 50, 120));
+        header.setForeground(Color.WHITE);
+        header.setPreferredSize(new Dimension(header.getWidth(), 35));
+
+        // Center ID Column
+        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+        if (table.getColumnCount() > 0) {
+            table.getColumnModel().getColumn(0).setCellRenderer(centerRenderer);
+            table.getColumnModel().getColumn(0).setPreferredWidth(40); // ID small
         }
-
-        private void applyTheme(JPanel sidebar, JLabel lblLogo) {
-        Color sidebarBg = darkMode ? new Color(32, 60, 140) : new Color(230, 240, 255);
-        Color sidebarText = darkMode ? Color.WHITE : new Color(20, 20, 40);
-        Color tableBg = darkMode ? new Color(255,255,255,60) : new Color(255,255,255);
-        Color headerBg = darkMode ? new Color(25,50,120) : new Color(200,220,255);
-        Color headerText = darkMode ? Color.WHITE : new Color(30,30,30);
-        Color cellText = darkMode ? Color.WHITE : Color.BLACK;
-
-        // Ubah sidebar
-        sidebar.setBackground(sidebarBg);
-        lblLogo.setForeground(sidebarText);
-
-        // Ubah seluruh tombol di sidebar
-        for (Component comp : sidebar.getComponents()) {
-            if (comp instanceof JButton btn) {
-                btn.setForeground(sidebarText);
-                btn.setBackground(darkMode ? new Color(32,60,140) : new Color(190,210,250));
-            }
+        
+        // Adjust other column widths if it's the concerts table
+        if (table.getColumnCount() >= 9) {
+            table.getColumnModel().getColumn(1).setPreferredWidth(150); // Name
+            table.getColumnModel().getColumn(2).setPreferredWidth(80);  // Date
+            table.getColumnModel().getColumn(3).setPreferredWidth(100); // Location
+            table.getColumnModel().getColumn(8).setPreferredWidth(150); // Guest Star
         }
-
-        // Tabel konser
-        JTableHeader header1 = tableConcerts.getTableHeader();
-        header1.setBackground(headerBg);
-        header1.setForeground(headerText);
-        tableConcerts.setBackground(tableBg);
-        tableConcerts.setForeground(cellText);
-        tableConcerts.setSelectionBackground(darkMode ? new Color(30,90,180) : new Color(180,200,255));
-        tableConcerts.setSelectionForeground(darkMode ? Color.WHITE : Color.BLACK);
-
-        // Tabel laporan
-        JTableHeader header2 = tableOrders.getTableHeader();
-        header2.setBackground(headerBg);
-        header2.setForeground(headerText);
-        tableOrders.setBackground(tableBg);
-        tableOrders.setForeground(cellText);
-        tableOrders.setSelectionBackground(darkMode ? new Color(30,90,180) : new Color(180,200,255));
-        tableOrders.setSelectionForeground(darkMode ? Color.WHITE : Color.BLACK);
     }
 
     // ===== CRUD & LOAD DATA =====
+    private void ensureImageColumnExists() {
+        try (Connection c = DBConnection.getConnection();
+             Statement s = c.createStatement()) {
+            // Attempt to add the column. If it exists, this might fail or we can check schema.
+            // A simple way is to try catching the error or checking metadata.
+            // "ADD COLUMN IF NOT EXISTS" is supported in some DBs, MySQL 8.0 support this.
+            // For older MySQL, we might need a workaround, but let's try the safe way.
+            DatabaseMetaData md = c.getMetaData();
+            ResultSet rs = md.getColumns(null, null, "concerts", "image_path");
+            if (!rs.next()) {
+                s.executeUpdate("ALTER TABLE concerts ADD COLUMN image_path VARCHAR(500)");
+                System.out.println("Column image_path added to concerts table.");
+            }
+        } catch (SQLException e) {
+            System.err.println("Check/Add Column Error: " + e.getMessage());
+        }
+    }
+
     private void addConcert() {
-        JTextField name = new JTextField();
-        JTextField location = new JTextField();
-        JTextField vip = new JTextField();
-        JTextField regular = new JTextField();
-        JTextField vipQuota = new JTextField();
-        JTextField regQuota = new JTextField();
-        JTextField guest = new JTextField();
+        Dimension fieldSize = new Dimension(500, 35);
+        JTextField name = new JTextField(); name.setPreferredSize(fieldSize);
+        JTextField location = new JTextField(); location.setPreferredSize(fieldSize);
+        JTextField vip = new JTextField(); vip.setPreferredSize(fieldSize);
+        JTextField regular = new JTextField(); regular.setPreferredSize(fieldSize);
+        JTextField vipQuota = new JTextField(); vipQuota.setPreferredSize(fieldSize);
+        JTextField regQuota = new JTextField(); regQuota.setPreferredSize(fieldSize);
+        JTextField guest = new JTextField(); guest.setPreferredSize(fieldSize);
+        
+        // Image Picker
+        JTextField txtImage = new JTextField();
+        txtImage.setEditable(false);
+        // txtImage will expand in BorderLayout, so we set panel size or just txtImage size
+        txtImage.setPreferredSize(new Dimension(400, 35)); 
+        JButton btnImage = new JButton("🖼 Pilih Poster");
+        btnImage.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Image Files", "jpg", "png", "jpeg"));
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                txtImage.setText(fc.getSelectedFile().getAbsolutePath());
+            }
+        });
+        JPanel imgPanel = new JPanel(new BorderLayout(5, 0)); // Gap 5
+        imgPanel.add(txtImage, BorderLayout.CENTER);
+        imgPanel.add(btnImage, BorderLayout.EAST);
+        imgPanel.setPreferredSize(fieldSize);
 
         // Date picker
         JTextField txtDate = new JTextField();
         txtDate.setEditable(false);
+        // txtDate.setPreferredSize(new Dimension(400, 35));
         JButton btnPick = new JButton("📅 Pilih");
         btnPick.addActionListener(e -> {
             DatePicker dp = new DatePicker(this);
@@ -327,9 +324,10 @@ public class AdminFrame extends JFrame {
                 txtDate.setText(new SimpleDateFormat("yyyy-MM-dd").format(d));
             }
         });
-        JPanel datePanel = new JPanel(new BorderLayout());
+        JPanel datePanel = new JPanel(new BorderLayout(5, 0));
         datePanel.add(txtDate, BorderLayout.CENTER);
         datePanel.add(btnPick, BorderLayout.EAST);
+        datePanel.setPreferredSize(fieldSize);
 
         Object[] form = {
                 "Nama Konser:", name,
@@ -339,13 +337,14 @@ public class AdminFrame extends JFrame {
                 "Regular Price:", regular,
                 "Kuota VIP:", vipQuota,
                 "Kuota Regular:", regQuota,
-                "Guest Star:", guest
+                "Guest Star:", guest,
+                "Poster Image:", imgPanel
         };
 
         if (JOptionPane.showConfirmDialog(this, form, "Tambah Konser", JOptionPane.OK_CANCEL_OPTION)
                 == JOptionPane.OK_OPTION) {
-            String sql = "INSERT INTO concerts(name, date, location, vip_price, regular_price, vip_quota, regular_quota, guest_star) " +
-                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
+            String sql = "INSERT INTO concerts(name, date, location, vip_price, regular_price, vip_quota, regular_quota, guest_star, image_path) " +
+                         "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
             try (Connection c = DBConnection.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, name.getText());
@@ -356,6 +355,7 @@ public class AdminFrame extends JFrame {
                 ps.setInt(6, Integer.parseInt(vipQuota.getText()));
                 ps.setInt(7, Integer.parseInt(regQuota.getText()));
                 ps.setString(8, guest.getText());
+                ps.setString(9, txtImage.getText());
                 ps.executeUpdate();
                 loadConcerts();
                 JOptionPane.showMessageDialog(this, "Konser berhasil ditambahkan!");
@@ -368,18 +368,29 @@ public class AdminFrame extends JFrame {
     private void editConcert() {
         int row = tableConcerts.getSelectedRow();
         if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih konser yang ingin diedit!");
+            JOptionPane.showMessageDialog(this, "Pilih konser yang ingin diedit terlebih dahulu!");
             return;
         }
 
         int id = (int) modelConcerts.getValueAt(row, 0);
-        JTextField name = new JTextField(modelConcerts.getValueAt(row, 1).toString());
-        JTextField location = new JTextField(modelConcerts.getValueAt(row, 3).toString());
-        JTextField vip = new JTextField(modelConcerts.getValueAt(row, 4).toString());
-        JTextField regular = new JTextField(modelConcerts.getValueAt(row, 5).toString());
-        JTextField vipQuota = new JTextField(modelConcerts.getValueAt(row, 6).toString());
-        JTextField regQuota = new JTextField(modelConcerts.getValueAt(row, 7).toString());
-        JTextField guest = new JTextField(modelConcerts.getValueAt(row, 8).toString());
+        // Fetch existing data fully to get image path which might not be in table
+        String currentImgPath = "";
+        try (Connection c = DBConnection.getConnection();
+             PreparedStatement ps = c.prepareStatement("SELECT image_path FROM concerts WHERE id=?")) {
+            ps.setInt(1, id);
+            ResultSet rs = ps.executeQuery();
+            if (rs.next()) currentImgPath = rs.getString("image_path");
+        } catch (SQLException e) { e.printStackTrace(); }
+
+        Dimension fieldSize = new Dimension(500, 35);
+
+        JTextField name = new JTextField(modelConcerts.getValueAt(row, 1).toString()); name.setPreferredSize(fieldSize);
+        JTextField location = new JTextField(modelConcerts.getValueAt(row, 3).toString()); location.setPreferredSize(fieldSize);
+        JTextField vip = new JTextField(modelConcerts.getValueAt(row, 4).toString()); vip.setPreferredSize(fieldSize);
+        JTextField regular = new JTextField(modelConcerts.getValueAt(row, 5).toString()); regular.setPreferredSize(fieldSize);
+        JTextField vipQuota = new JTextField(modelConcerts.getValueAt(row, 6).toString()); vipQuota.setPreferredSize(fieldSize);
+        JTextField regQuota = new JTextField(modelConcerts.getValueAt(row, 7).toString()); regQuota.setPreferredSize(fieldSize);
+        JTextField guest = new JTextField(modelConcerts.getValueAt(row, 8).toString()); guest.setPreferredSize(fieldSize);
 
         // date picker
         JTextField txtDate = new JTextField(modelConcerts.getValueAt(row, 2).toString());
@@ -390,9 +401,27 @@ public class AdminFrame extends JFrame {
             Date d = dp.pickDate();
             if (d != null) txtDate.setText(new SimpleDateFormat("yyyy-MM-dd").format(d));
         });
-        JPanel datePanel = new JPanel(new BorderLayout());
+        JPanel datePanel = new JPanel(new BorderLayout(5, 0));
         datePanel.add(txtDate, BorderLayout.CENTER);
         datePanel.add(btnPick, BorderLayout.EAST);
+        datePanel.setPreferredSize(fieldSize);
+        
+        // Image Picker
+        JTextField txtImage = new JTextField(currentImgPath);
+        txtImage.setEditable(false);
+        // txtImage.setPreferredSize(new Dimension(400, 35));
+        JButton btnImage = new JButton("🖼 Ganti");
+        btnImage.addActionListener(e -> {
+            JFileChooser fc = new JFileChooser();
+            fc.setFileFilter(new javax.swing.filechooser.FileNameExtensionFilter("Image Files", "jpg", "png", "jpeg"));
+            if (fc.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
+                txtImage.setText(fc.getSelectedFile().getAbsolutePath());
+            }
+        });
+        JPanel imgPanel = new JPanel(new BorderLayout(5, 0));
+        imgPanel.add(txtImage, BorderLayout.CENTER);
+        imgPanel.add(btnImage, BorderLayout.EAST);
+        imgPanel.setPreferredSize(fieldSize);
 
         Object[] form = {
                 "Nama Konser:", name,
@@ -402,12 +431,13 @@ public class AdminFrame extends JFrame {
                 "Regular Price:", regular,
                 "Kuota VIP:", vipQuota,
                 "Kuota Regular:", regQuota,
-                "Guest Star:", guest
+                "Guest Star:", guest,
+                "Poster Image:", imgPanel
         };
 
         if (JOptionPane.showConfirmDialog(this, form, "Edit Konser", JOptionPane.OK_CANCEL_OPTION)
                 == JOptionPane.OK_OPTION) {
-            String sql = "UPDATE concerts SET name=?, date=?, location=?, vip_price=?, regular_price=?, vip_quota=?, regular_quota=?, guest_star=? WHERE id=?";
+            String sql = "UPDATE concerts SET name=?, date=?, location=?, vip_price=?, regular_price=?, vip_quota=?, regular_quota=?, guest_star=?, image_path=? WHERE id=?";
             try (Connection c = DBConnection.getConnection();
                  PreparedStatement ps = c.prepareStatement(sql)) {
                 ps.setString(1, name.getText());
@@ -418,7 +448,9 @@ public class AdminFrame extends JFrame {
                 ps.setInt(6, Integer.parseInt(vipQuota.getText()));
                 ps.setInt(7, Integer.parseInt(regQuota.getText()));
                 ps.setString(8, guest.getText());
-                ps.setInt(9, id);
+                // Handle image path update
+                ps.setString(9, txtImage.getText());
+                ps.setInt(10, id);
                 ps.executeUpdate();
                 loadConcerts();
                 JOptionPane.showMessageDialog(this, "Data konser diperbarui!");
@@ -431,7 +463,7 @@ public class AdminFrame extends JFrame {
     private void deleteConcert() {
         int row = tableConcerts.getSelectedRow();
         if (row == -1) {
-            JOptionPane.showMessageDialog(this, "Pilih konser yang ingin dihapus!");
+            JOptionPane.showMessageDialog(this, "Pilih konser yang ingin dihapus terlebih dahulu!");
             return;
         }
         int id = (int) modelConcerts.getValueAt(row, 0);
@@ -456,6 +488,11 @@ public class AdminFrame extends JFrame {
              Statement st = c.createStatement();
              ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
+                String gs = rs.getString("guest_star");
+                if (gs != null) {
+                    gs = "<html>" + gs.replaceAll(",\\s*", "<br>") + "</html>";
+                }
+
                 modelConcerts.addRow(new Object[]{
                         rs.getInt("id"),
                         rs.getString("name"),
@@ -465,7 +502,7 @@ public class AdminFrame extends JFrame {
                         rs.getDouble("regular_price"),
                         rs.getInt("vip_quota"),
                         rs.getInt("regular_quota"),
-                        rs.getString("guest_star")
+                        gs
                 });
             }
         } catch (SQLException e) {
@@ -481,6 +518,9 @@ public class AdminFrame extends JFrame {
         try (Connection c = DBConnection.getConnection();
              Statement st = c.createStatement();
              ResultSet rs = st.executeQuery(sql)) {
+            
+            java.text.NumberFormat nf = java.text.NumberFormat.getCurrencyInstance(new java.util.Locale("id", "ID"));
+
             while (rs.next()) {
                 modelOrders.addRow(new Object[]{
                         rs.getInt("id"),
@@ -488,7 +528,7 @@ public class AdminFrame extends JFrame {
                         rs.getString("name"),
                         rs.getString("order_date"),
                         rs.getInt("quantity"),
-                        rs.getDouble("total_price")
+                        nf.format(rs.getDouble("total_price"))
                 });
             }
         } catch (SQLException e) {
