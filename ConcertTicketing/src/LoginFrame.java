@@ -11,7 +11,7 @@ public class LoginFrame extends JFrame {
 
     public LoginFrame() {
         setTitle("FestTrack | Login");
-        setSize(950, 650);
+        setSize(850, 550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setResizable(false);
@@ -100,7 +100,7 @@ public class LoginFrame extends JFrame {
                 g2.fillRect(0, 0, getWidth(), getHeight());
             }
         };
-        // rightPanel.setBackground(Color.WHITE); // Removed as we paint it now
+        // rightPanel.setBackground(Color.WHITE); 
 
         GridBagConstraints gbc = new GridBagConstraints();
         gbc.insets = new Insets(5, 20, 5, 20);
@@ -190,7 +190,7 @@ public class LoginFrame extends JFrame {
         f.setOpaque(false);
         f.setPreferredSize(new Dimension(260, 38));
         f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        f.setBackground(new Color(225, 240, 255)); // More colorful background
+        f.setBackground(new Color(225, 240, 255)); 
         f.setBorder(BorderFactory.createCompoundBorder(
                 new javax.swing.border.AbstractBorder() {
                     @Override
@@ -226,7 +226,7 @@ public class LoginFrame extends JFrame {
         p.setOpaque(false);
         p.setPreferredSize(new Dimension(260, 38));
         p.setFont(new Font("Segoe UI", Font.PLAIN, 14));
-        p.setBackground(new Color(225, 240, 255)); // More colorful background
+        p.setBackground(new Color(225, 240, 255)); 
         p.setBorder(BorderFactory.createCompoundBorder(
                 new javax.swing.border.AbstractBorder() {
                     @Override
