@@ -12,7 +12,7 @@ public class RegisterFrame extends JFrame {
 
     public RegisterFrame() {
         setTitle("FestTrack | Register");
-        setSize(950, 650);
+        setSize(850, 550);
         setLocationRelativeTo(null);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setResizable(false);
@@ -110,7 +110,7 @@ public class RegisterFrame extends JFrame {
 
         // Header
         JLabel lblTitle = new JLabel("Buat Akun Baru");
-        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 32));
+        lblTitle.setFont(new Font("Segoe UI", Font.BOLD, 24));
         lblTitle.setForeground(new Color(30, 30, 30));
 
         // Login Link
@@ -202,8 +202,8 @@ public class RegisterFrame extends JFrame {
             }
         };
         f.setOpaque(false);
-        f.setPreferredSize(new Dimension(300, 45));
-        f.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        f.setPreferredSize(new Dimension(260, 38));
+        f.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         f.setBackground(new Color(225, 240, 255)); // More colorful background
         f.setBorder(BorderFactory.createCompoundBorder(
                 new javax.swing.border.AbstractBorder() {
@@ -238,8 +238,8 @@ public class RegisterFrame extends JFrame {
             }
         };
         p.setOpaque(false);
-        p.setPreferredSize(new Dimension(300, 45));
-        p.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        p.setPreferredSize(new Dimension(260, 38));
+        p.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         p.setBackground(new Color(225, 240, 255)); // More colorful background
         p.setBorder(BorderFactory.createCompoundBorder(
                 new javax.swing.border.AbstractBorder() {
@@ -274,9 +274,9 @@ public class RegisterFrame extends JFrame {
             }
         };
         box.setOpaque(false);
-        box.setFont(new Font("Segoe UI", Font.PLAIN, 16));
+        box.setFont(new Font("Segoe UI", Font.PLAIN, 14));
         box.setBackground(new Color(225, 240, 255));
-        box.setPreferredSize(new Dimension(300, 45));
+        box.setPreferredSize(new Dimension(260, 38));
         box.setBorder(BorderFactory.createCompoundBorder(
                 new javax.swing.border.AbstractBorder() {
                     @Override
@@ -313,8 +313,8 @@ public class RegisterFrame extends JFrame {
                 super.paintComponent(g);
             }
         };
-        btn.setPreferredSize(new Dimension(300, 45));
-        btn.setFont(new Font("Segoe UI", Font.BOLD, 16));
+        btn.setPreferredSize(new Dimension(260, 38));
+        btn.setFont(new Font("Segoe UI", Font.BOLD, 14));
         btn.setForeground(Color.WHITE);
         btn.setContentAreaFilled(false);
         btn.setFocusPainted(false);

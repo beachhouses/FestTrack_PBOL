@@ -13,6 +13,7 @@ public class UserFrame extends JFrame {
     private JSpinner spnJumlah;
     private DefaultTableModel modelConcerts, modelHistory;
     private JPanel panelContent;
+    private ConcertCatalog concertCatalog;
 
     public UserFrame(int userId, String username) {
         this.userId = userId;
@@ -75,26 +76,8 @@ public class UserFrame extends JFrame {
         panelContent.setBorder(BorderFactory.createEmptyBorder(20, 20, 20, 20));
         bgPanel.add(panelContent, BorderLayout.CENTER);
 
-        // ==== Panel 1: Daftar Konser ====
-        JPanel cardConcerts = createCardPanel();
-        JLabel lbl1 = createGradientHeader("Daftar Konser");
-        cardConcerts.add(lbl1, BorderLayout.NORTH);
-
-        modelConcerts = new DefaultTableModel(new String[]{
-                "ID", "Nama Konser", "Tanggal", "Lokasi",
-                "Harga VIP", "Harga Regular", "Kuota VIP", "Kuota Regular", "Guest Star"
-        }, 0);
-        tblConcerts = new JTable(modelConcerts);
-        styleTable(tblConcerts);
-        JScrollPane scrollConcerts = createRoundedScrollPane(tblConcerts);
-        cardConcerts.add(scrollConcerts, BorderLayout.CENTER);
-
-        JButton btnReload = styledButton("Refresh", new Color(80, 100, 150));
-        JPanel bottom1 = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
-        bottom1.setOpaque(false);
-        bottom1.add(btnReload);
-        cardConcerts.add(bottom1, BorderLayout.SOUTH);
-        btnReload.addActionListener(e -> loadConcerts());
+        // ==== Panel 1: Daftar Konser (Katalog) ====
+        concertCatalog = new ConcertCatalog(this);
 
         // ==== Panel 2: Pemesanan Tiket ====
         JPanel cardOrder = createCardPanel();
@@ -110,6 +93,12 @@ public class UserFrame extends JFrame {
         JLabel lblConcert = new JLabel("Pilih Konser:");
         JLabel lblJumlah = new JLabel("Jumlah Tiket:");
         JLabel lblCategory = new JLabel("Kategori Tiket:");
+        
+        Font labelFont = new Font("Segoe UI", Font.BOLD, 14);
+        lblConcert.setFont(labelFont);
+        lblJumlah.setFont(labelFont);
+        lblCategory.setFont(labelFont);
+
         lblConcert.setForeground(Color.DARK_GRAY);
         lblJumlah.setForeground(Color.DARK_GRAY);
         lblCategory.setForeground(Color.DARK_GRAY);
@@ -117,6 +106,25 @@ public class UserFrame extends JFrame {
         cmbConcert = new JComboBox<>();
         ticketCategory = new JComboBox<>(new String[]{"VIP", "Regular"});
         spnJumlah = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+
+        // Increase size and font for better visibility
+        Dimension fieldSize = new Dimension(300, 40);
+        Font fieldFont = new Font("Segoe UI", Font.PLAIN, 16);
+
+        cmbConcert.setPreferredSize(fieldSize);
+        cmbConcert.setFont(fieldFont);
+
+        ticketCategory.setPreferredSize(fieldSize);
+        ticketCategory.setFont(fieldFont);
+
+        spnJumlah.setPreferredSize(fieldSize);
+        spnJumlah.setFont(fieldFont);
+        
+        // Fix spinner editor font
+        JComponent editor = spnJumlah.getEditor();
+        if (editor instanceof JSpinner.DefaultEditor) {
+            ((JSpinner.DefaultEditor) editor).getTextField().setFont(fieldFont);
+        }
 
         JButton btnPesan = styledButton("Pesan Tiket", new Color(35, 120, 220));
 
@@ -156,7 +164,8 @@ public class UserFrame extends JFrame {
         btnCetak.addActionListener(e -> cetakTiketHTML());
 
         // ==== Add to content ====
-        panelContent.add(cardConcerts, "concerts");
+        // ==== Add to content ====
+        panelContent.add(concertCatalog, "concerts");
         panelContent.add(cardOrder, "order");
         panelContent.add(cardHistory, "history");
 
@@ -170,7 +179,7 @@ public class UserFrame extends JFrame {
         });
 
         // ==== Load data ====
-        loadConcerts();
+        // loadConcerts(); // Handled by ConcertCatalog now
         loadConcertOptions();
         loadHistory();
 
@@ -211,6 +220,9 @@ public class UserFrame extends JFrame {
         b.setBorder(BorderFactory.createEmptyBorder(10, 15, 10, 15));
         b.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         b.setAlignmentX(Component.CENTER_ALIGNMENT);
+        // Set fixed size for uniformity
+        b.setMaximumSize(new Dimension(200, 45));
+        b.setPreferredSize(new Dimension(200, 45));
         b.addMouseListener(new java.awt.event.MouseAdapter() {
             public void mouseEntered(java.awt.event.MouseEvent evt) { b.setBackground(new Color(55, 110, 200)); }
             public void mouseExited(java.awt.event.MouseEvent evt) { b.setBackground(new Color(35, 70, 150)); }
@@ -238,7 +250,7 @@ public class UserFrame extends JFrame {
     }
 
     private void styleTable(JTable t) {
-        t.setRowHeight(30);
+        t.setRowHeight(60); // Increased row height for better spacing and list view
         t.setFont(new Font("Segoe UI", Font.PLAIN, 13));
         t.setSelectionBackground(new Color(30, 70, 180));
         t.setSelectionForeground(Color.WHITE);
@@ -270,14 +282,22 @@ public class UserFrame extends JFrame {
             sb.append("<html><head><meta charset='UTF-8'>");
             sb.append("<title>FestTrack Ticket</title>");
             sb.append("<style>");
-            sb.append("body { font-family: 'Segoe UI', sans-serif; background: #eef3ff; color: #222; }");
-            sb.append(".ticket { width: 520px; margin: 50px auto; padding: 30px;");
+            sb.append("body { font-family: 'Segoe UI', sans-serif; background: #eef3ff; color: #222; text-align: center; }");
+            sb.append(".ticket { width: 520px; margin: 50px auto; padding: 30px; text-align: left;");
             sb.append("background: white; border-radius: 20px;");
-            sb.append("box-shadow: 0 6px 16px rgba(0,0,0,0.2); }");
-            sb.append("h1 { text-align: center; color: #1e40af; }");
+            sb.append("box-shadow: 0 6px 16px rgba(0,0,0,0.2); position: relative; }");
+            sb.append("h1 { text-align: center; color: #1e40af; margin-top: 0; }");
             sb.append(".info { margin-top: 20px; font-size: 15px; }");
-            sb.append(".info div { margin: 8px 0; }");
+            sb.append(".info div { margin: 8px 0; border-bottom: 1px dashed #eee; padding-bottom: 5px; }");
             sb.append(".footer { margin-top: 30px; text-align: center; color: #555; font-size: 13px; }");
+            sb.append(".btn-print { background: #2563eb; color: white; border: none; padding: 12px 24px; ");
+            sb.append("border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }");
+            sb.append(".btn-print:hover { background: #1d4ed8; }");
+            sb.append("@media print {");
+            sb.append("  .no-print { display: none !important; }");
+            sb.append("  body { background: white; }");
+            sb.append("  .ticket { box-shadow: none; border: 1px solid #ddd; margin: 0 auto; width: 100%; max-width: 600px; }");
+            sb.append("}");
             sb.append("</style></head><body>");
             sb.append("<div class='ticket'>");
             sb.append("<h1>🎟 FESTTRACK TICKET</h1>");
@@ -286,11 +306,13 @@ public class UserFrame extends JFrame {
             sb.append("<div><b>Nama Konser:</b> ").append(konser).append("</div>");
             sb.append("<div><b>Tanggal Pesan:</b> ").append(tanggal).append("</div>");
             sb.append("<div><b>Jumlah Tiket:</b> ").append(jumlah).append("</div>");
-            sb.append("<div><b>Total Bayar:</b> Rp ").append(total).append("</div>");
+            sb.append("<div><b>Total Bayar:</b> ").append(total).append("</div>");
             sb.append("</div>");
             sb.append("<div class='footer'>Terima kasih telah menggunakan FestTrack!<br>");
             sb.append("Simpan tiket ini sebagai bukti pemesanan.</div>");
-            sb.append("</div></body></html>");
+            sb.append("</div>");
+            sb.append("<button class='btn-print no-print' onclick='window.print()'>📥 Unduh / Cetak PDF</button>");
+            sb.append("</body></html>");
 
             writer.print(sb.toString());
             writer.close();
@@ -304,26 +326,7 @@ public class UserFrame extends JFrame {
 
     // ==== Database ====
     private void loadConcerts() {
-        modelConcerts.setRowCount(0);
-        try (Connection c = DBConnection.getConnection();
-             Statement s = c.createStatement();
-             ResultSet r = s.executeQuery("SELECT * FROM concerts")) {
-            while (r.next()) {
-                modelConcerts.addRow(new Object[]{
-                        r.getInt("id"),
-                        r.getString("name"),
-                        r.getString("date"),
-                        r.getString("location"),
-                        r.getDouble("vip_price"),
-                        r.getDouble("regular_price"),
-                        r.getInt("vip_quota"),
-                        r.getInt("regular_quota"),
-                        r.getString("guest_star")
-                });
-            }
-        } catch (SQLException e) {
-            JOptionPane.showMessageDialog(this, "Error load konser: " + e.getMessage());
-        }
+        if (concertCatalog != null) concertCatalog.loadConcerts();
     }
 
     private void loadConcertOptions() {
@@ -431,17 +434,34 @@ public class UserFrame extends JFrame {
                              "FROM orders o JOIN concerts c ON o.concert_id=c.id WHERE o.user_id=?")) {
             ps.setInt(1, userId);
             ResultSet rs = ps.executeQuery();
+            
+            java.text.NumberFormat nf = java.text.NumberFormat.getCurrencyInstance(new java.util.Locale("id", "ID"));
+
             while (rs.next()) {
                 modelHistory.addRow(new Object[]{
                         rs.getInt("id"),
                         rs.getString("name"),
                         rs.getString("order_date"),
                         rs.getInt("quantity"),
-                        rs.getDouble("total_price")
+                        nf.format(rs.getDouble("total_price"))
                 });
             }
         } catch (SQLException e) {
             JOptionPane.showMessageDialog(this, "Error load riwayat: " + e.getMessage());
+        }
+    }
+
+    public void openOrderPage(int concertId) {
+        CardLayout cl = (CardLayout) panelContent.getLayout();
+        cl.show(panelContent, "order");
+        
+        // Select the concert in the combobox
+        for (int i = 0; i < cmbConcert.getItemCount(); i++) {
+            String item = cmbConcert.getItemAt(i);
+            if (item.startsWith(concertId + " - ")) {
+                cmbConcert.setSelectedIndex(i);
+                break;
+            }
         }
     }
 
